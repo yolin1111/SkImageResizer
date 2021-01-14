@@ -5,7 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using SkiaSharp;
-
+//TODO 目前的 ResizeImagesAsync 非同步方法，其實是直接複製 ResizeImages 同步方法的內容而已，並不是「真」非同步方法喔！請修改 ResizeImagesAsync 非同步方法，用比較有效率的方式執行圖片縮放功能！
 namespace SkImageResizer
 {
     public class SKImageProcess
