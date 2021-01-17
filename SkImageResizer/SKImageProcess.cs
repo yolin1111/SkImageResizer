@@ -45,8 +45,7 @@ namespace SkImageResizer
                 data.SaveTo(s);
             }
         }
-
-        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale, CancellationToken token)
         {
             if (!Directory.Exists(destPath))
             {
@@ -56,27 +55,80 @@ namespace SkImageResizer
             await Task.Yield();
 
             var allFiles = FindImages(sourcePath);
+            List<Task> tasks = new List<Task>();
             foreach (var filePath in allFiles)
             {
-                var bitmap = SKBitmap.Decode(filePath);
-                var imgPhoto = SKImage.FromBitmap(bitmap);
-                var imgName = Path.GetFileNameWithoutExtension(filePath);
+                tasks.Add(Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var bitmap = SKBitmap.Decode(filePath);
+                    var imgPhoto = SKImage.FromBitmap(bitmap);
+                    var imgName = Path.GetFileNameWithoutExtension(filePath);
 
-                var sourceWidth = imgPhoto.Width;
-                var sourceHeight = imgPhoto.Height;
+                    var sourceWidth = imgPhoto.Width;
+                    var sourceHeight = imgPhoto.Height;
 
-                var destinationWidth = (int)(sourceWidth * scale);
-                var destinationHeight = (int)(sourceHeight * scale);
+                    var destinationWidth = (int)(sourceWidth * scale);
+                    var destinationHeight = (int)(sourceHeight * scale);
 
-                using var scaledBitmap = bitmap.Resize(
-                    new SKImageInfo(destinationWidth, destinationHeight),
-                    SKFilterQuality.High);
-                using var scaledImage = SKImage.FromBitmap(scaledBitmap);
-                using var data = scaledImage.Encode(SKEncodedImageFormat.Jpeg, 100);
-                using var s = File.OpenWrite(Path.Combine(destPath, imgName + ".jpg"));
-                data.SaveTo(s);
+                    using var scaledBitmap = bitmap.Resize(
+                        new SKImageInfo(destinationWidth, destinationHeight),
+                        SKFilterQuality.High);
+                    using var scaledImage = SKImage.FromBitmap(scaledBitmap);
+                    using var data = scaledImage.Encode(SKEncodedImageFormat.Jpeg, 100);
+                    using var s = File.OpenWrite(Path.Combine(destPath, imgName + ".jpg"));
+                    data.SaveTo(s);
+                }));
             }
+
+            await Task.WhenAll(tasks);
         }
+        //非同步第二版
+        //利用套件可修正限VS
+        // public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        // {
+        //     await Task.Run(() => ResizeImages(sourcePath, destPath, scale));
+
+        // }
+        //非同步第一版
+        // public Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        // {
+        //     ResizeImages(sourcePath, destPath, scale);
+        //     return Task.CompletedTask;
+
+        // }
+        //非同步未修改
+        // public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        // {
+        //     if (!Directory.Exists(destPath))
+        //     {
+        //         Directory.CreateDirectory(destPath);
+        //     }
+
+        //     await Task.Yield();
+
+        //     var allFiles = FindImages(sourcePath);
+        //     foreach (var filePath in allFiles)
+        //     {
+        //         var bitmap = SKBitmap.Decode(filePath);
+        //         var imgPhoto = SKImage.FromBitmap(bitmap);
+        //         var imgName = Path.GetFileNameWithoutExtension(filePath);
+
+        //         var sourceWidth = imgPhoto.Width;
+        //         var sourceHeight = imgPhoto.Height;
+
+        //         var destinationWidth = (int)(sourceWidth * scale);
+        //         var destinationHeight = (int)(sourceHeight * scale);
+
+        //         using var scaledBitmap = bitmap.Resize(
+        //             new SKImageInfo(destinationWidth, destinationHeight),
+        //             SKFilterQuality.High);
+        //         using var scaledImage = SKImage.FromBitmap(scaledBitmap);
+        //         using var data = scaledImage.Encode(SKEncodedImageFormat.Jpeg, 100);
+        //         using var s = File.OpenWrite(Path.Combine(destPath, imgName + ".jpg"));
+        //         data.SaveTo(s);
+        //     }
+        // }
 
         /// <summary>
         /// 清空目的目錄下的所有檔案與目錄
